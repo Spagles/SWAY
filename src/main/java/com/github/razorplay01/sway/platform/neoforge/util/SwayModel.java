@@ -2,8 +2,12 @@ package com.github.razorplay01.sway.platform.neoforge.util;
 //? neoforge {
 
 /*import com.github.razorplay01.sway.SwayRenderContext;
+import com.github.razorplay01.sway.api.SwayAPI;
+import com.github.razorplay01.sway.api.behavior.BehaviorPipeline;
 import com.github.razorplay01.sway.client.SwayData;
 import com.github.razorplay01.sway.client.SwayEngine;
+import com.github.razorplay01.sway.client.render.SwayBehaviorDeformer;
+import com.github.razorplay01.sway.platform.neoforge.render.NeoForgePartVertexMutator;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -12,7 +16,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 //? <=1.21.1 {
-/^import net.minecraft.client.resources.model.BakedModel;
+/^import com.github.razorplay01.sway.platform.neoforge.render.NeoForgePartVertexMutator;
+import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.neoforged.neoforge.client.model.data.ModelData;
 ^///?}
@@ -41,54 +46,44 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 		this.parent = parent;
 	}
 
-	private float getWeight(float y, BlockState state) {
-		boolean isDouble = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF);
-		boolean isUpper = isDouble && state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER;
-		float progress = isDouble ? (isUpper ? (y + 1.0F) / 2.0F : y / 2.0F) : y;
-		return progress > 0.05F ? progress * progress : 0.0F;
+	private static BlockPos resolveSwayPos(BlockPos pos, BlockState state) {
+		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
+				state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
+			return pos.below();
+		}
+		return pos;
+	}
+
+	private static BehaviorPipeline pipeline(BlockState state) {
+		return SwayAPI.getBehaviorPipeline(state.getBlock());
 	}
 
 	//? <=1.21.1 {
-	/^private List<BakedQuad> transformQuads(List<BakedQuad> quads, BlockState state, SwayData data) {
+	/^private List<BakedQuad> transformQuads(List<BakedQuad> quads, BlockState state, SwayData data, BlockPos pos) {
 		if (quads.isEmpty() || data == null || data.intensity < 0.01F) {
 			return quads;
 		}
 
 		SwayData interpolated = data.getInterpolated(SwayEngine.getSmoothness());
-		float dx = interpolated.nx * interpolated.intensity * 0.45F;
-		float dz = interpolated.nz * interpolated.intensity * 0.45F;
-		if (dx == 0 && dz == 0) {
-			return quads;
-		}
+		BehaviorPipeline pipeline = pipeline(state);
 
 		List<BakedQuad> transformed = new ArrayList<>(quads.size());
 		for (BakedQuad quad : quads) {
-			transformed.add(transformQuad(quad, dx, dz, state));
+			transformed.add(transformQuadLegacy(quad, interpolated, state, pos, pipeline));
 		}
 		return transformed;
 	}
 
-	private BakedQuad transformQuad(BakedQuad original, float dx, float dz, BlockState state) {
-		int[] vertexData = original.getVertices().clone();
+	private BakedQuad transformQuadLegacy(BakedQuad original, SwayData interpolated, BlockState state, BlockPos pos, BehaviorPipeline pipeline) {
+		int[] vertexData = original.getVertices();
 		int stride = vertexData.length / 4;
+		NeoForgePartVertexMutator mutator = new NeoForgePartVertexMutator(vertexData, stride);
+		SwayBehaviorDeformer.deform(mutator, interpolated, state, pos, pipeline);
 
-		for (int i = 0; i < 4; i++) {
-			int offset = i * stride;
-			float x = Float.intBitsToFloat(vertexData[offset]);
-			float y = Float.intBitsToFloat(vertexData[offset + 1]);
-			float z = Float.intBitsToFloat(vertexData[offset + 2]);
-
-			float weight = getWeight(y, state);
-			if (weight > 0) {
-				x += dx * weight;
-				z += dz * weight;
-				vertexData[offset] = Float.floatToRawIntBits(x);
-				vertexData[offset + 2] = Float.floatToRawIntBits(z);
-			}
-		}
+		if (!mutator.isModified()) return original;
 
 		return new BakedQuad(
-				vertexData,
+				mutator.getTransformedVertexData(),
 				original.getTintIndex(),
 				original.getDirection(),
 				original.getSprite(),
@@ -116,7 +111,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 		}
 
 		List<BakedQuad> original = parent.getQuads(state, side, rand, extraData, renderType);
-		return transformQuads(original, state, data);
+		return transformQuads(original, state, data, null);
 	}
 	¹^///?}else{
 	@Override
@@ -130,19 +125,14 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 			return parent.getQuads(state, side, rand);
 		}
 
-		BlockPos swayPos = pos;
-		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
-				state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
-			swayPos = pos.below();
-		}
-
+		BlockPos swayPos = resolveSwayPos(pos, state);
 		SwayData data = SwayEngine.get(swayPos);
 		if (data == null || data.intensity < 0.01F) {
 			return parent.getQuads(state, side, rand);
 		}
 
 		List<BakedQuad> originalQuads = parent.getQuads(state, side, rand);
-		return transformQuads(originalQuads, state, data);
+		return transformQuads(originalQuads, state, data, pos);
 	}
 	//?}
 
@@ -185,12 +175,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 	//? >1.21.1 && <=1.21.11{
 	/^@Override
 	public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, List<BlockModelPart> parts) {
-		BlockPos swayPos = pos;
-		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
-				state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
-			swayPos = pos.below();
-		}
-
+		BlockPos swayPos = resolveSwayPos(pos, state);
 		SwayData data = SwayEngine.get(swayPos);
 		if (data == null || data.intensity < 0.01F) {
 			parent.collectParts(level, pos, state, random, parts);
@@ -198,76 +183,53 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 		}
 
 		SwayData interpolated = data.getInterpolated(SwayEngine.getSmoothness());
-		float dx = interpolated.nx * interpolated.intensity * 0.45F;
-		float dz = interpolated.nz * interpolated.intensity * 0.45F;
-		if (dx == 0 && dz == 0) {
-			parent.collectParts(level, pos, state, random, parts);
-			return;
-		}
+		BehaviorPipeline pipeline = pipeline(state);
 
 		List<BlockModelPart> tempParts = new ArrayList<>();
 		parent.collectParts(level, pos, state, random, tempParts);
 
 		for (BlockModelPart part : tempParts) {
-			parts.add(new SwayBlockStateModelPart(part, dx, dz, state));
+			parts.add(new SwayBlockStateModelPart<>(part, interpolated, state, pos, pipeline));
 		}
 	}
 
-	private record SwayBlockStateModelPart(BlockModelPart original, float dx, float dz,
-	                                       BlockState state) implements BlockModelPart {
+	private record SwayBlockStateModelPart<T>(T original, SwayData interpolated,
+	                                           BlockState state, BlockPos pos,
+	                                           BehaviorPipeline pipeline) implements BlockModelPart {
 		@Override
 		public List<BakedQuad> getQuads(Direction direction) {
-			List<BakedQuad> originalQuads = original.getQuads(direction);
-			if (originalQuads.isEmpty()) {
-				return originalQuads;
-			}
+			List<BakedQuad> originalQuads = ((BlockModelPart) original).getQuads(direction);
+			if (originalQuads.isEmpty()) return originalQuads;
 
 			List<BakedQuad> transformed = new ArrayList<>(originalQuads.size());
 			for (BakedQuad quad : originalQuads) {
-				transformed.add(transformQuad(quad));
+				transformed.add(transformQuadPart(quad));
 			}
 			return transformed;
 		}
 
-		private BakedQuad transformQuad(BakedQuad quad) {
-			org.joml.Vector3fc p0 = quad.position0();
-			org.joml.Vector3fc p1 = quad.position1();
-			org.joml.Vector3fc p2 = quad.position2();
-			org.joml.Vector3fc p3 = quad.position3();
-
-			float w0 = getWeight(p0.y());
-			float w1 = getWeight(p1.y());
-			float w2 = getWeight(p2.y());
-			float w3 = getWeight(p3.y());
-
-			org.joml.Vector3fc np0 = w0 > 0 ? new org.joml.Vector3f(p0.x() + dx * w0, p0.y(), p0.z() + dz * w0) : p0;
-			org.joml.Vector3fc np1 = w1 > 0 ? new org.joml.Vector3f(p1.x() + dx * w1, p1.y(), p1.z() + dz * w1) : p1;
-			org.joml.Vector3fc np2 = w2 > 0 ? new org.joml.Vector3f(p2.x() + dx * w2, p2.y(), p2.z() + dz * w2) : p2;
-			org.joml.Vector3fc np3 = w3 > 0 ? new org.joml.Vector3f(p3.x() + dx * w3, p3.y(), p3.z() + dz * w3) : p3;
+		private BakedQuad transformQuadPart(BakedQuad quad) {
+			NeoForgePartVertexMutator mutator = new NeoForgePartVertexMutator(
+					quad.position0(), quad.position1(), quad.position2(), quad.position3());
+			SwayBehaviorDeformer.deform(mutator, interpolated, state, pos, pipeline);
+			if (!mutator.isModified()) return quad;
 
 			return new BakedQuad(
-					np0, np1, np2, np3,
+					mutator.getPos(0), mutator.getPos(1), mutator.getPos(2), mutator.getPos(3),
 					quad.packedUV0(), quad.packedUV1(), quad.packedUV2(), quad.packedUV3(),
 					quad.tintIndex(), quad.direction(), quad.sprite(), quad.shade(),
 					quad.lightEmission(), quad.bakedNormals(), quad.bakedColors(), quad.hasAmbientOcclusion()
 			);
 		}
 
-		private float getWeight(float y) {
-			boolean isDouble = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF);
-			boolean isUpper = isDouble && state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER;
-			float progress = isDouble ? (isUpper ? (y + 1.0F) / 2.0F : y / 2.0F) : y;
-			return progress > 0.05F ? progress * progress : 0.0F;
-		}
-
 		@Override
 		public boolean useAmbientOcclusion() {
-			return original.useAmbientOcclusion();
+			return ((BlockModelPart) original).useAmbientOcclusion();
 		}
 
 		@Override
 		public TextureAtlasSprite particleIcon() {
-			return original.particleIcon();
+			return ((BlockModelPart) original).particleIcon();
 		}
 	}
 
@@ -304,12 +266,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 
 	@Override
 	public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, List<BlockStateModelPart> parts) {
-		BlockPos swayPos = pos;
-		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
-				state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
-			swayPos = pos.below();
-		}
-
+		BlockPos swayPos = resolveSwayPos(pos, state);
 		SwayData data = SwayEngine.get(swayPos);
 		if (data == null || data.intensity < 0.01F) {
 			parent.collectParts(level, pos, state, random, parts);
@@ -317,35 +274,42 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 		}
 
 		SwayData interpolated = data.getInterpolated(SwayEngine.getSmoothness());
-		float dx = interpolated.nx * interpolated.intensity * 0.45F;
-		float dz = interpolated.nz * interpolated.intensity * 0.45F;
-		if (dx == 0 && dz == 0) {
-			parent.collectParts(level, pos, state, random, parts);
-			return;
-		}
+		BehaviorPipeline pipeline = pipeline(state);
 
 		List<BlockStateModelPart> tempParts = new ArrayList<>();
 		parent.collectParts(level, pos, state, random, tempParts);
 
 		for (BlockStateModelPart part : tempParts) {
-			parts.add(new SwayBlockStateModelPart(part, dx, dz, state));
+			parts.add(new SwayBlockStateModelPart26(part, interpolated, state, pos, pipeline));
 		}
 	}
 
-	private record SwayBlockStateModelPart(BlockStateModelPart original, float dx, float dz,
-	                                       BlockState state) implements BlockStateModelPart {
+	private record SwayBlockStateModelPart26(BlockStateModelPart original, SwayData interpolated,
+	                                         BlockState state, BlockPos pos,
+	                                         BehaviorPipeline pipeline) implements BlockStateModelPart {
 		@Override
 		public List<BakedQuad> getQuads(Direction direction) {
 			List<BakedQuad> originalQuads = original.getQuads(direction);
-			if (originalQuads.isEmpty()) {
-				return originalQuads;
-			}
+			if (originalQuads.isEmpty()) return originalQuads;
 
 			List<BakedQuad> transformed = new ArrayList<>(originalQuads.size());
 			for (BakedQuad quad : originalQuads) {
-				transformed.add(transformQuad(quad));
+				transformed.add(transformQuadPart(quad));
 			}
 			return transformed;
+		}
+
+		private BakedQuad transformQuadPart(BakedQuad quad) {
+			NeoForgePartVertexMutator mutator = new NeoForgePartVertexMutator(
+					quad.position0(), quad.position1(), quad.position2(), quad.position3());
+			SwayBehaviorDeformer.deform(mutator, interpolated, state, pos, pipeline);
+			if (!mutator.isModified()) return quad;
+
+			return new BakedQuad(
+					mutator.getPos(0), mutator.getPos(1), mutator.getPos(2), mutator.getPos(3),
+					quad.packedUV0(), quad.packedUV1(), quad.packedUV2(), quad.packedUV3(),
+					quad.direction(), quad.materialInfo()
+			);
 		}
 
 		@Override
@@ -362,36 +326,6 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 		public @BakedQuad.MaterialFlags int materialFlags() {
 			return original.materialFlags();
 		}
-
-		private BakedQuad transformQuad(BakedQuad quad) {
-			org.joml.Vector3fc p0 = quad.position0();
-			org.joml.Vector3fc p1 = quad.position1();
-			org.joml.Vector3fc p2 = quad.position2();
-			org.joml.Vector3fc p3 = quad.position3();
-
-			float w0 = getWeight(p0.y());
-			float w1 = getWeight(p1.y());
-			float w2 = getWeight(p2.y());
-			float w3 = getWeight(p3.y());
-
-			org.joml.Vector3fc np0 = w0 > 0 ? new org.joml.Vector3f(p0.x() + dx * w0, p0.y(), p0.z() + dz * w0) : p0;
-			org.joml.Vector3fc np1 = w1 > 0 ? new org.joml.Vector3f(p1.x() + dx * w1, p1.y(), p1.z() + dz * w1) : p1;
-			org.joml.Vector3fc np2 = w2 > 0 ? new org.joml.Vector3f(p2.x() + dx * w2, p2.y(), p2.z() + dz * w2) : p2;
-			org.joml.Vector3fc np3 = w3 > 0 ? new org.joml.Vector3f(p3.x() + dx * w3, p3.y(), p3.z() + dz * w3) : p3;
-
-			return new BakedQuad(
-					np0, np1, np2, np3,
-					quad.packedUV0(), quad.packedUV1(), quad.packedUV2(), quad.packedUV3(),
-					quad.direction(), quad.materialInfo()
-			);
-		}
-
-		private float getWeight(float y) {
-			boolean isDouble = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF);
-			boolean isUpper = isDouble && state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER;
-			float progress = isDouble ? (isUpper ? (y + 1.0F) / 2.0F : y / 2.0F) : y;
-			return progress > 0.05F ? progress * progress : 0.0F;
-		}
 	}
 	//?}
 
@@ -400,12 +334,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 
 	@Override
 	public ModelData getModelData(net.minecraft.world.level.BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData modelData) {
-		BlockPos swayPos = pos;
-		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
-				state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
-			swayPos = pos.below();
-		}
-
+		BlockPos swayPos = resolveSwayPos(pos, state);
 		SwayData data = SwayEngine.get(swayPos);
 		if (data == null || data.intensity < 0.01F) {
 			return modelData;

@@ -1,14 +1,19 @@
 package com.github.razorplay01.sway.client;
 
 import com.github.razorplay01.sway.api.SwayAPI;
+import com.github.razorplay01.sway.api.behavior.BehaviorPipeline;
+import com.github.razorplay01.sway.api.behavior.contributors.CollisionContributor;
+import com.github.razorplay01.sway.api.behavior.contributors.ForceContributor;
+import com.github.razorplay01.sway.api.behavior.contributors.MultiBlockContributor;
+import com.github.razorplay01.sway.api.behavior.context.ForceAccumulator;
+import com.github.razorplay01.sway.api.behavior.context.SwayBehaviorContext;
 import com.github.razorplay01.sway.config.SwayConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -23,6 +28,8 @@ public class SwayEngine {
 	private static final float DECAY_RATE = 5.0F;
 	private static final float SMOOTHNESS = 8.0F;
 
+	private static final ThreadLocal<ForceAccumulator> ACCUMULATOR = ThreadLocal.withInitial(ForceAccumulator::new);
+
 	public static void update() {
 		Minecraft mc = Minecraft.getInstance();
 		ClientLevel level = mc.level;
@@ -36,93 +43,40 @@ public class SwayEngine {
 		float radius = SwayConfig.INSTANCE.influenceRadius;
 		float baseIntensity = SwayConfig.INSTANCE.intensity;
 
-		AABB box = mc.player.getBoundingBox().inflate(range);
-		Iterable<Entity> entities = level.getEntitiesOfClass(Entity.class, box, e -> !e.isSpectator() && e.isAlive());
+		AABB globalBox = mc.player.getBoundingBox().inflate(range);
+		Iterable<Entity> entities = level.getEntitiesOfClass(Entity.class, globalBox, e -> !e.isSpectator() && e.isAlive());
 
 		BlockPos.MutableBlockPos mpos = new BlockPos.MutableBlockPos();
+		int r = (int) Math.ceil(radius);
+
+		SwayBehaviorContext baseCtx = new SwayBehaviorContext(level, null, SwayConfig.INSTANCE, 0.016F);
 
 		for (Entity entity : entities) {
 			Vec3 pos = entity.position();
-			int r = (int) Math.ceil(radius);
+			SwayBehaviorContext entityCtx = new SwayBehaviorContext(level, entity, SwayConfig.INSTANCE, 0.016F);
 
-			for (int x = -r; x <= r; x++) {
-				for (int z = -r; z <= r; z++) {
-					for (int y = -1; y <= 1; y++) {
-						mpos.set(pos.x + x, pos.y + y, pos.z + z);
+			int minX = (int) Math.floor(pos.x - r);
+			int maxX = (int) Math.floor(pos.x + r);
+			int minZ = (int) Math.floor(pos.z - r);
+			int maxZ = (int) Math.floor(pos.z + r);
+			int yBase = (int) Math.floor(pos.y);
 
-						BlockState state = level.getBlockState(mpos);
-						float mult = SwayAPI.getMultiplier(state);
-						if (mult <= 0) continue;
-
-						BlockPos calcPos = mpos;
-						if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
-								state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
-							calcPos = mpos.below();
-						}
-
-						double dx = (calcPos.getX() + 0.5) - pos.x;
-						double dz = (calcPos.getZ() + 0.5) - pos.z;
-						double distSq = dx * dx + dz * dz;
-
-						if (distSq < radius * radius) {
-							double d = Math.sqrt(distSq);
-							float force = (float) (1.0 - d / radius) * mult * baseIntensity;
-
-							if (force > 0.01F) {
-								float nx = d > 0.001 ? (float) (dx / d) : 1.0F;
-								float nz = d > 0.001 ? (float) (dz / d) : 0.0F;
-
-								BlockPos immutablePos = mpos.immutable();
-								SwayData existing = next.get(immutablePos);
-
-								if (existing != null) {
-									// Combinar fuerzas si ya existe
-									float combinedForce = Math.min(existing.intensity + force, baseIntensity * 2);
-									existing.update(nx, nz, combinedForce);
-								} else {
-									SwayData current = CURRENT.get(immutablePos);
-									if (current != null) {
-										current.update(nx, nz, force);
-										next.put(immutablePos, current);
-									} else {
-										next.put(immutablePos, new SwayData(nx, nz, force));
-									}
-								}
-
-								// Aplicar a ambas mitades de bloques dobles
-								if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
-									BlockPos otherHalf = (state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.LOWER)
-											? mpos.above()
-											: mpos.below();
-									BlockPos otherImmutable = otherHalf.immutable();
-
-									SwayData otherExisting = next.get(otherImmutable);
-									if (otherExisting != null) {
-										otherExisting.update(nx, nz, Math.min(otherExisting.intensity + force, baseIntensity * 2));
-									} else {
-										SwayData otherCurrent = CURRENT.get(otherImmutable);
-										if (otherCurrent != null) {
-											otherCurrent.update(nx, nz, force);
-											next.put(otherImmutable, otherCurrent);
-										} else {
-											next.put(otherImmutable, new SwayData(nx, nz, force));
-										}
-									}
-								}
-							}
-						}
+			for (int x = minX; x <= maxX; x++) {
+				for (int z = minZ; z <= maxZ; z++) {
+					for (int dy = -1; dy <= 1; dy++) {
+						mpos.set(x, yBase + dy, z);
+						processBlock(mpos, level, entity, entityCtx, next, radius, baseIntensity);
 					}
 				}
 			}
 		}
 
-		// Manejar decay suave para bloques que ya no tienen fuerza
 		DECAYING.clear();
 		for (Map.Entry<BlockPos, SwayData> entry : CURRENT.entrySet()) {
 			BlockPos p = entry.getKey();
 			if (!next.containsKey(p)) {
 				SwayData data = entry.getValue();
-				float newIntensity = Math.max(0, data.intensity - (DECAY_RATE * 0.016f)); // Asumiendo ~60 FPS
+				float newIntensity = Math.max(0, data.intensity - (DECAY_RATE * 0.016f));
 
 				if (newIntensity > THRESHOLD) {
 					data.update(data.nx, data.nz, newIntensity);
@@ -134,7 +88,6 @@ public class SwayEngine {
 			}
 		}
 
-		// Aplicar cambios
 		for (Map.Entry<BlockPos, SwayData> entry : next.entrySet()) {
 			mark(mc, level, entry.getKey());
 		}
@@ -142,6 +95,83 @@ public class SwayEngine {
 		CURRENT.clear();
 		CURRENT.putAll(next);
 		CURRENT.putAll(DECAYING);
+	}
+
+	private static void processBlock(BlockPos.MutableBlockPos mpos, ClientLevel level, Entity entity,
+	                                 SwayBehaviorContext ctx, Map<BlockPos, SwayData> next,
+	                                 float radius, float baseIntensity) {
+		BlockState state = level.getBlockState(mpos);
+		Block block = state.getBlock();
+
+		BehaviorPipeline pipeline = SwayAPI.getBehaviorPipeline(block);
+		if (pipeline.isEmpty()) return;
+
+		for (CollisionContributor cc : pipeline.getCollisionContributors()) {
+			if (!cc.shouldAffectBlock(mpos, state, entity, ctx)) return;
+		}
+
+		BlockPos anchor = mpos.immutable();
+		for (MultiBlockContributor mb : pipeline.getMultiBlockContributors()) {
+			anchor = mb.getAnchorPosition(anchor, state);
+		}
+
+		Vec3 entityPos = entity.position();
+		double dx = (anchor.getX() + 0.5) - entityPos.x;
+		double dz = (anchor.getZ() + 0.5) - entityPos.z;
+		double distSq = dx * dx + dz * dz;
+
+		if (distSq >= radius * radius) return;
+
+		ForceAccumulator acc = ACCUMULATOR.get();
+		acc.reset();
+
+		double d = Math.sqrt(distSq);
+		float force = (float) (1.0 - d / radius) * baseIntensity;
+		if (force <= 0.01F) return;
+
+		float nx = d > 0.001 ? (float) (dx / d) : 1.0F;
+		float nz = d > 0.001 ? (float) (dz / d) : 0.0F;
+		acc.contribute(nx, nz, force, ForceAccumulator.CombineStrategy.ADD);
+
+		for (ForceContributor fc : pipeline.getForceContributors()) {
+			fc.contributeForce(mpos, state, entity, ctx, acc);
+		}
+
+		if (!acc.hasAnyContribution()) return;
+
+		float capped = Math.min(acc.getIntensity(), baseIntensity * 2);
+		if (capped <= 0.01F) return;
+
+		BlockPos immutablePos = mpos.immutable();
+		applyAccumulatorToPos(acc, immutablePos, next, capped);
+
+		for (MultiBlockContributor mb : pipeline.getMultiBlockContributors()) {
+			for (BlockPos linked : mb.getLinkedBlocks(anchor, state, level)) {
+				applyAccumulatorToPos(acc, linked.immutable(), next, capped);
+			}
+		}
+	}
+
+	private static void applyAccumulatorToPos(ForceAccumulator acc, BlockPos pos,
+	                                           Map<BlockPos, SwayData> next, float intensityCap) {
+		SwayData existing = next.get(pos);
+		if (existing != null) {
+			float combinedForce = Math.min(existing.intensity + acc.getIntensity(), intensityCap);
+			float ratio = existing.intensity / (existing.intensity + acc.getIntensity() + 0.0001F);
+			float nx = existing.nx * ratio + acc.getNx() * (1 - ratio);
+			float nz = existing.nz * ratio + acc.getNz() * (1 - ratio);
+			float len = (float) Math.sqrt(nx * nx + nz * nz);
+			if (len > 0.001F) { nx /= len; nz /= len; }
+			existing.update(nx, nz, combinedForce);
+		} else {
+			SwayData current = CURRENT.get(pos);
+			if (current != null) {
+				current.update(acc.getNx(), acc.getNz(), Math.min(acc.getIntensity(), intensityCap));
+				next.put(pos, current);
+			} else {
+				next.put(pos, new SwayData(acc.getNx(), acc.getNz(), Math.min(acc.getIntensity(), intensityCap)));
+			}
+		}
 	}
 
 	private static void mark(Minecraft mc, ClientLevel level, BlockPos pos) {

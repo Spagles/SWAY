@@ -1,65 +1,74 @@
 package com.github.razorplay01.sway.api;
 
+import com.github.razorplay01.sway.api.behavior.BehaviorKey;
+import com.github.razorplay01.sway.api.behavior.BehaviorPipeline;
+import com.github.razorplay01.sway.api.behavior.SwayBehavior;
+import com.github.razorplay01.sway.client.behavior.BuiltinBehaviors;
+import com.github.razorplay01.sway.registry.BehaviorRegistry;
+import com.github.razorplay01.sway.registry.BlockPipelineRegistry;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
-/**
- * Public API for the Sway mod.
- * This class provides methods for other developers to integrate their mods with Sway's foliage interaction system.
- * <p>
- * Example usage:
- * <pre>
- * SwayAPI.register(MyBlocks.CUSTOM_BUSH, 1.2f);
- * </pre>
- */
 public final class SwayAPI {
 	private SwayAPI() {
-		/* This utility class should not be instantiated */
 	}
 
-	private static final Map<Block, Float> REGISTRY = Collections.synchronizedMap(new IdentityHashMap<>());
+	private static final Map<Block, Float> LEGACY_REGISTRY = Collections.synchronizedMap(new IdentityHashMap<>());
 
-	/**
-	 * Registers a block to be interactive with the Sway deformation engine.
-	 *
-	 * @param block      The block to register (should be a foliage-like block).
-	 * @param multiplier The intensity of the deformation (1.0 is default, >1.0 is more intense, <1.0 is more subtle).
-	 */
 	public static void register(Block block, float multiplier) {
-		REGISTRY.put(block, multiplier);
+		LEGACY_REGISTRY.put(block, multiplier);
+		BuiltinBehaviors.ensureRegistered();
+		BlockPipelineRegistry.setPipeline(block, List.of(
+				BuiltinBehaviors.ENTITY_COLLISION_KEY,
+				BuiltinBehaviors.PROXIMITY_FORCE_KEY,
+				BuiltinBehaviors.DOUBLE_PLANT_MULTIBLOCK_KEY,
+				BuiltinBehaviors.STANDARD_DEFORMATION_KEY,
+				BuiltinBehaviors.multiplierKey(multiplier)
+		));
 	}
 
-	/**
-	 * Checks if a block is currently registered in the Sway system.
-	 *
-	 * @param block The block to check.
-	 * @return true if the block is registered.
-	 */
 	public static boolean isInteractive(Block block) {
-		return REGISTRY.containsKey(block);
+		return LEGACY_REGISTRY.containsKey(block) || BlockPipelineRegistry.hasPipeline(block);
 	}
 
-	/**
-	 * Calculates the sway multiplier for a given BlockState.
-	 * This method automatically handles double-height blocks (like tall grass),
-	 * applying a higher multiplier to the top half and a lower one to the bottom.
-	 *
-	 * @param state The BlockState to check.
-	 * @return The calculated multiplier, or 0.0f if the block is not registered.
-	 */
 	public static float getMultiplier(BlockState state) {
-        Float base = REGISTRY.get(state.getBlock());
-        return base != null ? base : 0.0F;
-    }
+		Float base = LEGACY_REGISTRY.get(state.getBlock());
+		return base != null ? base : 0.0F;
+	}
 
-	/**
-	 * @return Immutable-ish view of registered blocks.
-	 */
 	public static Map<Block, Float> getRegistry() {
-		return REGISTRY;
+		return LEGACY_REGISTRY;
+	}
+
+	public static void registerBehavior(BehaviorKey key, SwayBehavior behavior) {
+		BehaviorRegistry.register(key, behavior);
+	}
+
+	public static void addBehaviorToBlock(Block block, BehaviorKey key, int priority) {
+		BuiltinBehaviors.ensureRegistered();
+		BlockPipelineRegistry.addBehavior(block, key, priority);
+	}
+
+	public static void removeBehaviorFromBlock(Block block, BehaviorKey key) {
+		BlockPipelineRegistry.removeBehavior(block, key);
+	}
+
+	public static void setBlockPipeline(Block block, List<BehaviorKey> keys) {
+		BuiltinBehaviors.ensureRegistered();
+		BlockPipelineRegistry.setPipeline(block, keys);
+	}
+
+	public static BehaviorPipeline getBehaviorPipeline(Block block) {
+		return BlockPipelineRegistry.getPipeline(block);
+	}
+
+	public static void registerGlobalBehavior(BehaviorKey key, int priority, Predicate<Block> applyTo) {
+		BlockPipelineRegistry.registerGlobalBehavior(key, priority, applyTo);
 	}
 }

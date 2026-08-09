@@ -1,4 +1,4 @@
-package com.github.razorplay01.sway.config;
+package com.github.razorplay01.sway.registry;
 
 import com.github.razorplay01.sway.ModTemplate;
 import com.github.razorplay01.sway.api.SwayAPI;
