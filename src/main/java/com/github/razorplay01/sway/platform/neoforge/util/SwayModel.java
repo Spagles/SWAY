@@ -16,11 +16,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 //? <=1.21.1 {
-/^import com.github.razorplay01.sway.platform.neoforge.render.NeoForgePartVertexMutator;
+import com.github.razorplay01.sway.platform.neoforge.render.NeoForgePartVertexMutator;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.neoforged.neoforge.client.model.data.ModelData;
-^///?}
+//?}
 //? >1.21.1 && <26 {
 /^import net.minecraft.client.renderer.block.model.BlockStateModel;
 import net.minecraft.client.renderer.block.model.BlockModelPart;
@@ -28,21 +28,21 @@ import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.world.level.BlockAndTintGetter;
 ^///?}
 //? >=26 {
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+/^import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
-//?}
+^///?}
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^/ /^BakedModel ^//^?} ^/ {
+public class SwayModel implements /^? >= 1.21.2 {^/ /^BlockStateModel ^//^?} else {^/ BakedModel /^?} ^/ {
 
-	private final /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^/ /^BakedModel ^//^?} ^/ parent;
+	private final /^? >= 1.21.2 {^/ /^BlockStateModel ^//^?} else {^/ BakedModel /^?} ^/ parent;
 
-	public SwayModel(/^? >= 1.21.2 {^/ BlockStateModel /^?} else {^/ /^BakedModel ^//^?} ^/ parent) {
+	public SwayModel(/^? >= 1.21.2 {^/ /^BlockStateModel ^//^?} else {^/ BakedModel /^?} ^/ parent) {
 		this.parent = parent;
 	}
 
@@ -59,7 +59,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 	}
 
 	//? <=1.21.1 {
-	/^private List<BakedQuad> transformQuads(List<BakedQuad> quads, BlockState state, SwayData data, BlockPos pos) {
+	private List<BakedQuad> transformQuads(List<BakedQuad> quads, BlockState state, SwayData data, BlockPos pos) {
 		if (quads.isEmpty() || data == null || data.intensity < 0.01F) {
 			return quads;
 		}
@@ -93,7 +93,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 	}
 
 	//?1.21.1{
-	/^¹@Override
+	@Override
 	public List<BakedQuad> getQuads(BlockState state, Direction side, RandomSource rand) {
 		return getQuads(state, side, rand, ModelData.EMPTY, null);
 	}
@@ -113,8 +113,8 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 		List<BakedQuad> original = parent.getQuads(state, side, rand, extraData, renderType);
 		return transformQuads(original, state, data, null);
 	}
-	¹^///?}else{
-	@Override
+	//?}else{
+	/^@Override
 	public List<BakedQuad> getQuads(BlockState state, Direction side, RandomSource rand) {
 		if (state == null) {
 			return parent.getQuads(null, side, rand);
@@ -134,7 +134,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 		List<BakedQuad> originalQuads = parent.getQuads(state, side, rand);
 		return transformQuads(originalQuads, state, data, pos);
 	}
-	//?}
+	^///?}
 
 	@Override
 	public boolean useAmbientOcclusion() {
@@ -170,7 +170,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 	public net.minecraft.client.renderer.block.model.ItemOverrides getOverrides() {
 		return parent.getOverrides();
 	}
-	^///?}
+	//?}
 
 	//? >1.21.1 && <=1.21.11{
 	/^@Override
@@ -244,7 +244,7 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 	}
 	^///?}
 	//? >=26 {
-	@Override
+	/^@Override
 	public Material.Baked particleMaterial() {
 		return this.parent.particleMaterial();
 	}
@@ -327,10 +327,10 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 			return original.materialFlags();
 		}
 	}
-	//?}
+	^///?}
 
 	//? 1.21.1 {
-	/^public static final net.neoforged.neoforge.client.model.data.ModelProperty<SwayData> SWAY_DATA = new net.neoforged.neoforge.client.model.data.ModelProperty<>();
+	public static final net.neoforged.neoforge.client.model.data.ModelProperty<SwayData> SWAY_DATA = new net.neoforged.neoforge.client.model.data.ModelProperty<>();
 
 	@Override
 	public ModelData getModelData(net.minecraft.world.level.BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData modelData) {
@@ -344,6 +344,6 @@ public class SwayModel implements /^? >= 1.21.2 {^/ BlockStateModel /^?} else {^
 				.with(SWAY_DATA, data)
 				.build();
 	}
-	^///?}
+	//?}
 }
 *///?}

@@ -1,10 +1,10 @@
 package com.github.razorplay01.sway.platform.neoforge.render;
 //? neoforge {
 
-import com.github.razorplay01.sway.client.render.VertexMutator;
+/*import com.github.razorplay01.sway.client.render.VertexMutator;
 
 //? <=1.21.1 {
-/*public final class NeoForgePartVertexMutator implements VertexMutator {
+public final class NeoForgePartVertexMutator implements VertexMutator {
 	private final int[] vertexData;
 	private final int stride;
 	private boolean modified;
@@ -63,9 +63,9 @@ import com.github.razorplay01.sway.client.render.VertexMutator;
 		vertexData[idx * stride + 2] = Float.floatToRawIntBits(value);
 	}
 }
-*///?}
+//?}
 //? >1.21.1 {
-public final class NeoForgePartVertexMutator implements VertexMutator {
+/^public final class NeoForgePartVertexMutator implements VertexMutator {
 	private final float[] xs = new float[4];
 	private final float[] ys = new float[4];
 	private final float[] zs = new float[4];
@@ -134,5 +134,5 @@ public final class NeoForgePartVertexMutator implements VertexMutator {
 		modified = true;
 	}
 }
-//?}
-//?}
+^///?}
+*///?}

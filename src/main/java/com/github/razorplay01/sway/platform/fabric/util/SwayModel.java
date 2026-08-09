@@ -1,8 +1,10 @@
-package com.github.razorplay01.sway.client;
+package com.github.razorplay01.sway.platform.fabric.util;
 //? fabric {
 
 import com.github.razorplay01.sway.api.SwayAPI;
 import com.github.razorplay01.sway.api.behavior.BehaviorPipeline;
+import com.github.razorplay01.sway.client.SwayData;
+import com.github.razorplay01.sway.client.SwayEngine;
 import com.github.razorplay01.sway.client.render.SwayBehaviorDeformer;
 import com.github.razorplay01.sway.platform.fabric.render.FabricVertexMutator;
 import net.minecraft.core.BlockPos;
