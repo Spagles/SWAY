@@ -28,6 +28,9 @@ public class SwayEngine {
 	private static final float DECAY_RATE = 5.0F;
 	private static final float SMOOTHNESS = 8.0F;
 
+	private static final Map<BlockPos, SwayData> LAST_MARKED = new ConcurrentHashMap<>();
+	private static final float MARK_EPSILON = 0.01F;
+
 	private static final ThreadLocal<ForceAccumulator> ACCUMULATOR = ThreadLocal.withInitial(ForceAccumulator::new);
 
 	public static void update() {
@@ -61,10 +64,6 @@ public class SwayEngine {
 			int maxZ = (int) Math.floor(pos.z + r);
 			int yBase = (int) Math.floor(pos.y);
 
-			// Search vertically with an expanded range so structures that hang from
-			// ceilings (like weeping vines) or grow tall (like sugar cane) are
-			// properly detected even when the entity is at floor level.
-			// Floor: radius below (ground plants) | Ceiling: radius + 8 above (vines)
 			int dyMin = (int) Math.floor(-radius);
 			int dyMax = (int) Math.ceil(radius) + 8;
 
@@ -88,16 +87,18 @@ public class SwayEngine {
 				if (newIntensity > THRESHOLD) {
 					data.update(data.nx, data.nz, newIntensity);
 					DECAYING.put(p, data);
-					mark(mc, level, p);
+					markIfChanged(p, data);
 				} else {
-					mark(mc, level, p);
+					markIfChanged(p, data);
 				}
 			}
 		}
 
 		for (Map.Entry<BlockPos, SwayData> entry : next.entrySet()) {
-			mark(mc, level, entry.getKey());
+			blockPosMarkIfChanged(entry.getKey(), entry.getValue());
 		}
+
+		LAST_MARKED.keySet().removeIf(p -> !CURRENT.containsKey(p) && !next.containsKey(p) && !DECAYING.containsKey(p));
 
 		CURRENT.clear();
 		CURRENT.putAll(next);
@@ -122,20 +123,15 @@ public class SwayEngine {
 			anchor = mb.getAnchorPosition(anchor, state);
 		}
 
-		// Use the entity's EXACT bounding box (hitbox) — no inflation.
-		// Only blocks that actually overlap horizontally with the hitbox
-		// are affected. This ensures plants/lianas only react when truly touched.
 		AABB entityBox = entity.getBoundingBox();
 		AABB blockBox = new AABB(mpos.getX(), mpos.getY(), mpos.getZ(),
 				mpos.getX() + 1.0, mpos.getY() + 1.0, mpos.getZ() + 1.0);
 
-		// Horizontal overlap check (X/Z)
 		if (entityBox.maxX <= blockBox.minX || entityBox.minX >= blockBox.maxX ||
 				entityBox.maxZ <= blockBox.minZ || entityBox.minZ >= blockBox.maxZ) {
 			return;
 		}
 
-		// Compute overlap amount to determine force intensity (gradual effect)
 		double overlapX = Math.min(entityBox.maxX, blockBox.maxX) - Math.max(entityBox.minX, blockBox.minX);
 		double overlapZ = Math.min(entityBox.maxZ, blockBox.maxZ) - Math.max(entityBox.minZ, blockBox.minZ);
 		float overlapFactor = (float) Math.min(1.0, Math.max(overlapX, overlapZ)); // 0.0 to 1.0
@@ -145,7 +141,6 @@ public class SwayEngine {
 		ForceAccumulator acc = ACCUMULATOR.get();
 		acc.reset();
 
-		// Direction from entity center to block center (outward push)
 		double blockCenterX = mpos.getX() + 0.5;
 		double blockCenterZ = mpos.getZ() + 0.5;
 		double entityCenterX = (entityBox.minX + entityBox.maxX) / 2.0;
@@ -173,9 +168,6 @@ public class SwayEngine {
 
 		BlockPos immutablePos = mpos.immutable();
 		applyAccumulatorToPos(acc, immutablePos, next, capped);
-		// Ensure the anchor always receives the same data so multi-block structures
-		// (like vines) deform cohesively as a single unit.
-		// Avoid double-applying when the current block IS the anchor.
 		if (!immutablePos.equals(anchor)) {
 			applyAccumulatorToPos(acc, anchor, next, capped);
 		}
@@ -209,6 +201,37 @@ public class SwayEngine {
 		}
 	}
 
+	private static void markIfChanged(BlockPos pos, SwayData data) {
+		Minecraft mc = Minecraft.getInstance();
+		ClientLevel level = mc.level;
+		if (level == null) return;
+
+		SwayData last = LAST_MARKED.get(pos);
+		if (last != null && last.nx == data.nx && last.nz == data.nz &&
+				Math.abs(last.intensity - data.intensity) < MARK_EPSILON) {
+			// State hasn't changed enough to warrant re-render
+			return;
+		}
+
+		mark(mc, level, pos);
+		LAST_MARKED.put(pos, new SwayData(data.nx, data.nz, data.intensity));
+	}
+
+	private static void blockPosMarkIfChanged(BlockPos pos, SwayData data) {
+		Minecraft mc = Minecraft.getInstance();
+		ClientLevel level = mc.level;
+		if (level == null) return;
+
+		SwayData last = LAST_MARKED.get(pos);
+		if (last != null && last.nx == data.nx && last.nz == data.nz &&
+				Math.abs(last.intensity - data.intensity) < MARK_EPSILON) {
+			return;
+		}
+
+		mark(mc, level, pos);
+		LAST_MARKED.put(pos, new SwayData(data.nx, data.nz, data.intensity));
+	}
+
 	private static void mark(Minecraft mc, ClientLevel level, BlockPos pos) {
 		if (level == null) return;
 		//? <26.2{
@@ -225,6 +248,7 @@ public class SwayEngine {
 		for (BlockPos p : CURRENT.keySet()) mark(mc, level, p);
 		CURRENT.clear();
 		DECAYING.clear();
+		LAST_MARKED.clear();
 	}
 
 	public static SwayData get(BlockPos pos) {
