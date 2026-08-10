@@ -116,8 +116,11 @@ public class SwayEngine {
 		}
 
 		Vec3 entityPos = entity.position();
-		double dx = (anchor.getX() + 0.5) - entityPos.x;
-		double dz = (anchor.getZ() + 0.5) - entityPos.z;
+		// Calculate distance from the entity to the current block being processed,
+		// not the anchor, so tall multi-block structures (like sugar cane) react
+		// even when the entity is near the top of the stalk.
+		double dx = (mpos.getX() + 0.5) - entityPos.x;
+		double dz = (mpos.getZ() + 0.5) - entityPos.z;
 		double distSq = dx * dx + dz * dz;
 
 		if (distSq >= radius * radius) return;
@@ -177,12 +180,12 @@ public class SwayEngine {
 	private static void mark(Minecraft mc, ClientLevel level, BlockPos pos) {
 		if (level == null) return;
 		//? <26.2{
-		/*BlockState s = level.getBlockState(pos);
+		BlockState s = level.getBlockState(pos);
 		mc.levelRenderer.blockChanged(level, pos, s, s, 0);
-		*///?}
-		//? >=26.2{
-		((com.github.razorplay01.sway.SwayLevelRendererExtension) mc.levelRenderer).sway$markBlockForRerender(level, pos);
 		//?}
+		//? >=26.2{
+		/*((com.github.razorplay01.sway.SwayLevelRendererExtension) mc.levelRenderer).sway$markBlockForRerender(level, pos);
+		*///?}
 	}
 
 	private static void reset(ClientLevel level) {

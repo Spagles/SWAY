@@ -1,5 +1,6 @@
 package com.github.razorplay01.sway.client.behavior.force;
 
+import com.github.razorplay01.sway.api.SwayAPI;
 import com.github.razorplay01.sway.api.behavior.contributors.ForceContributor;
 import com.github.razorplay01.sway.api.behavior.context.ForceAccumulator;
 import com.github.razorplay01.sway.api.behavior.context.SwayBehaviorContext;
@@ -23,11 +24,13 @@ public class ProximityForceBehavior implements ForceContributor {
 		float radius = cfg.influenceRadius;
 		float baseIntensity = cfg.intensity;
 
-		BlockPos calcPos = resolveAnchor(pos, state, ctx);
+		// Calculate distance from the entity to the current block being processed,
+		// not the anchor, so tall multi-block structures (like sugar cane) react
+		// even when the entity is near the top of the stalk.
 		Vec3 entityPos = entity.position();
 
-		double dx = (calcPos.getX() + 0.5) - entityPos.x;
-		double dz = (calcPos.getZ() + 0.5) - entityPos.z;
+		double dx = (pos.getX() + 0.5) - entityPos.x;
+		double dz = (pos.getZ() + 0.5) - entityPos.z;
 		double distSq = dx * dx + dz * dz;
 
 		if (distSq < radius * radius) {
@@ -54,7 +57,7 @@ public class ProximityForceBehavior implements ForceContributor {
 
 	private BehaviorPipeline resolvePipeline(BlockState state) {
 		try {
-			return com.github.razorplay01.sway.api.SwayAPI.getBehaviorPipeline(state.getBlock());
+			return SwayAPI.getBehaviorPipeline(state.getBlock());
 		} catch (Exception e) {
 			return null;
 		}

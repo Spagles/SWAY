@@ -2,11 +2,13 @@ package com.github.razorplay01.sway.registry;
 
 import com.github.razorplay01.sway.ModTemplate;
 import com.github.razorplay01.sway.api.SwayAPI;
+import com.github.razorplay01.sway.client.behavior.BuiltinBehaviors;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.resources./*? >= 1.21.11 {*/ Identifier /*?} else {*/ /*ResourceLocation *//*?} */;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -15,7 +17,7 @@ import java.util.Optional;
 public class SwayRegistry {
 
 	public static void initialize() {
-		//reg(Blocks.SUGAR_CANE);
+		registerSugarCane();
 		//reg(Blocks.VINE, Blocks.WEEPING_VINES, Blocks.WEEPING_VINES_PLANT, Blocks.TWISTING_VINES, Blocks.TWISTING_VINES_PLANT);
 		reg(Blocks.TALL_GRASS, Blocks.FERN, Blocks.LARGE_FERN);
 		reg(Blocks.DEAD_BUSH, Blocks.SWEET_BERRY_BUSH, Blocks.CAVE_VINES, Blocks.CAVE_VINES_PLANT, Blocks.SMALL_DRIPLEAF, Blocks.BIG_DRIPLEAF, Blocks.BIG_DRIPLEAF_STEM, Blocks.GLOW_LICHEN, Blocks.MOSS_CARPET, Blocks.PITCHER_PLANT, Blocks.PITCHER_CROP, Blocks.TORCHFLOWER, Blocks.TORCHFLOWER_CROP, Blocks.BAMBOO_SAPLING);
@@ -39,6 +41,17 @@ public class SwayRegistry {
 		regOpt("minecraft:firefly_bush");
 		regOpt("minecraft:short_dry_grass");
 		regOpt("minecraft:tall_dry_grass");
+	}
+
+	private static void registerSugarCane() {
+		BuiltinBehaviors.ensureRegistered();
+		SwayAPI.setBlockPipeline(Blocks.SUGAR_CANE, List.of(
+				BuiltinBehaviors.ENTITY_COLLISION_KEY,
+				BuiltinBehaviors.PROXIMITY_FORCE_KEY,
+				BuiltinBehaviors.SUGAR_CANE_MULTIBLOCK_KEY,
+				BuiltinBehaviors.SUGAR_CANE_DEFORMATION_KEY,
+				BuiltinBehaviors.multiplierKey(1.0F)
+		));
 	}
 
 	private static void reg(Block... blocks) {
