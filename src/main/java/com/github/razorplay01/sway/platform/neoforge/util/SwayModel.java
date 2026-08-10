@@ -6,8 +6,11 @@ import com.github.razorplay01.sway.api.SwayAPI;
 import com.github.razorplay01.sway.api.behavior.BehaviorPipeline;
 import com.github.razorplay01.sway.client.SwayData;
 import com.github.razorplay01.sway.client.SwayEngine;
+import com.github.razorplay01.sway.client.behavior.multiblock.VineMultiblockBehavior;
 import com.github.razorplay01.sway.client.render.SwayBehaviorDeformer;
 import com.github.razorplay01.sway.platform.neoforge.render.NeoForgePartVertexMutator;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -47,10 +50,31 @@ public class SwayModel implements /^? >= 1.21.2 {^/ /^BlockStateModel ^//^?} els
 	}
 
 	private static BlockPos resolveSwayPos(BlockPos pos, BlockState state) {
+		// For double plants, use the lower block's data
 		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
 				state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
 			return pos.below();
 		}
+
+		// For vines, use the anchor block's data so all segments deform together
+		if (VineMultiblockBehavior.isVine(state)) {
+			ClientLevel level = Minecraft.getInstance().level;
+			if (level != null) {
+				boolean hanging = VineMultiblockBehavior.isHangingVine(state);
+				BlockPos anchor = pos;
+				if (hanging) {
+					while (VineMultiblockBehavior.isVine(level.getBlockState(anchor.above()))) {
+						anchor = anchor.above();
+					}
+				} else {
+					while (VineMultiblockBehavior.isVine(level.getBlockState(anchor.below()))) {
+						anchor = anchor.below();
+					}
+				}
+				return anchor;
+			}
+		}
+
 		return pos;
 	}
 

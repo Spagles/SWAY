@@ -61,9 +61,16 @@ public class SwayEngine {
 			int maxZ = (int) Math.floor(pos.z + r);
 			int yBase = (int) Math.floor(pos.y);
 
+			// Search vertically with an expanded range so structures that hang from
+			// ceilings (like weeping vines) or grow tall (like sugar cane) are
+			// properly detected even when the entity is at floor level.
+			// Floor: radius below (ground plants) | Ceiling: radius + 8 above (vines)
+			int dyMin = (int) Math.floor(-radius);
+			int dyMax = (int) Math.ceil(radius) + 8;
+
 			for (int x = minX; x <= maxX; x++) {
 				for (int z = minZ; z <= maxZ; z++) {
-					for (int dy = -1; dy <= 1; dy++) {
+					for (int dy = dyMin; dy <= dyMax; dy++) {
 						mpos.set(x, yBase + dy, z);
 						processBlock(mpos, level, entity, entityCtx, next, radius, baseIntensity);
 					}
@@ -115,21 +122,40 @@ public class SwayEngine {
 			anchor = mb.getAnchorPosition(anchor, state);
 		}
 
-		Vec3 entityPos = entity.position();
-		// Calculate distance from the entity to the current block being processed,
-		// not the anchor, so tall multi-block structures (like sugar cane) react
-		// even when the entity is near the top of the stalk.
-		double dx = (mpos.getX() + 0.5) - entityPos.x;
-		double dz = (mpos.getZ() + 0.5) - entityPos.z;
-		double distSq = dx * dx + dz * dz;
+		// Use the entity's EXACT bounding box (hitbox) — no inflation.
+		// Only blocks that actually overlap horizontally with the hitbox
+		// are affected. This ensures plants/lianas only react when truly touched.
+		AABB entityBox = entity.getBoundingBox();
+		AABB blockBox = new AABB(mpos.getX(), mpos.getY(), mpos.getZ(),
+				mpos.getX() + 1.0, mpos.getY() + 1.0, mpos.getZ() + 1.0);
 
-		if (distSq >= radius * radius) return;
+		// Horizontal overlap check (X/Z)
+		if (entityBox.maxX <= blockBox.minX || entityBox.minX >= blockBox.maxX ||
+				entityBox.maxZ <= blockBox.minZ || entityBox.minZ >= blockBox.maxZ) {
+			return;
+		}
+
+		// Compute overlap amount to determine force intensity (gradual effect)
+		double overlapX = Math.min(entityBox.maxX, blockBox.maxX) - Math.max(entityBox.minX, blockBox.minX);
+		double overlapZ = Math.min(entityBox.maxZ, blockBox.maxZ) - Math.max(entityBox.minZ, blockBox.minZ);
+		float overlapFactor = (float) Math.min(1.0, Math.max(overlapX, overlapZ)); // 0.0 to 1.0
+
+		if (overlapFactor <= 0.01F) return;
 
 		ForceAccumulator acc = ACCUMULATOR.get();
 		acc.reset();
 
-		double d = Math.sqrt(distSq);
-		float force = (float) (1.0 - d / radius) * baseIntensity;
+		// Direction from entity center to block center (outward push)
+		double blockCenterX = mpos.getX() + 0.5;
+		double blockCenterZ = mpos.getZ() + 0.5;
+		double entityCenterX = (entityBox.minX + entityBox.maxX) / 2.0;
+		double entityCenterZ = (entityBox.minZ + entityBox.maxZ) / 2.0;
+
+		double dx = blockCenterX - entityCenterX;
+		double dz = blockCenterZ - entityCenterZ;
+		double d = Math.sqrt(dx * dx + dz * dz);
+
+		float force = baseIntensity * overlapFactor;
 		if (force <= 0.01F) return;
 
 		float nx = d > 0.001 ? (float) (dx / d) : 1.0F;
@@ -147,6 +173,12 @@ public class SwayEngine {
 
 		BlockPos immutablePos = mpos.immutable();
 		applyAccumulatorToPos(acc, immutablePos, next, capped);
+		// Ensure the anchor always receives the same data so multi-block structures
+		// (like vines) deform cohesively as a single unit.
+		// Avoid double-applying when the current block IS the anchor.
+		if (!immutablePos.equals(anchor)) {
+			applyAccumulatorToPos(acc, anchor, next, capped);
+		}
 
 		for (MultiBlockContributor mb : pipeline.getMultiBlockContributors()) {
 			for (BlockPos linked : mb.getLinkedBlocks(anchor, state, level)) {
@@ -180,12 +212,12 @@ public class SwayEngine {
 	private static void mark(Minecraft mc, ClientLevel level, BlockPos pos) {
 		if (level == null) return;
 		//? <26.2{
-		BlockState s = level.getBlockState(pos);
+		/*BlockState s = level.getBlockState(pos);
 		mc.levelRenderer.blockChanged(level, pos, s, s, 0);
-		//?}
-		//? >=26.2{
-		/*((com.github.razorplay01.sway.SwayLevelRendererExtension) mc.levelRenderer).sway$markBlockForRerender(level, pos);
 		*///?}
+		//? >=26.2{
+		((com.github.razorplay01.sway.SwayLevelRendererExtension) mc.levelRenderer).sway$markBlockForRerender(level, pos);
+		//?}
 	}
 
 	private static void reset(ClientLevel level) {

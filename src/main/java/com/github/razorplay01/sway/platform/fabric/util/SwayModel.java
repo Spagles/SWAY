@@ -5,8 +5,11 @@ import com.github.razorplay01.sway.api.SwayAPI;
 import com.github.razorplay01.sway.api.behavior.BehaviorPipeline;
 import com.github.razorplay01.sway.client.SwayData;
 import com.github.razorplay01.sway.client.SwayEngine;
+import com.github.razorplay01.sway.client.behavior.multiblock.VineMultiblockBehavior;
 import com.github.razorplay01.sway.client.render.SwayBehaviorDeformer;
 import com.github.razorplay01.sway.platform.fabric.render.FabricVertexMutator;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
@@ -144,7 +147,10 @@ public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*
 			return;
 		}
 
-		SwayData data = SwayEngine.get(pos);
+		// For vines, use the SwayData from the anchor block so all segments
+		// of the same vine deform together as one cohesive unit.
+		BlockPos swayPos = resolveSwayPos(pos, state);
+		SwayData data = SwayEngine.get(swayPos);
 		if (data == null || data.intensity < 0.01F) {
 			this.parent.emitQuads(emitter, view, pos, state, random, cull);
 			return;
@@ -165,10 +171,31 @@ public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*
 	//?}
 
 	private static BlockPos resolveSwayPos(BlockPos pos, BlockState state) {
+		// For double plants, use the lower block's data
 		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
 				state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
 			return pos.below();
 		}
+
+		// For vines, use the anchor block's data so all segments deform together
+		if (VineMultiblockBehavior.isVine(state)) {
+			ClientLevel level = Minecraft.getInstance().level;
+			if (level != null) {
+				boolean hanging = VineMultiblockBehavior.isHangingVine(state);
+				BlockPos anchor = pos;
+				if (hanging) {
+					while (VineMultiblockBehavior.isVine(level.getBlockState(anchor.above()))) {
+						anchor = anchor.above();
+					}
+				} else {
+					while (VineMultiblockBehavior.isVine(level.getBlockState(anchor.below()))) {
+						anchor = anchor.below();
+					}
+				}
+				return anchor;
+			}
+		}
+
 		return pos;
 	}
 

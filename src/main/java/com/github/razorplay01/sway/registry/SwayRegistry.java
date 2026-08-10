@@ -2,6 +2,7 @@ package com.github.razorplay01.sway.registry;
 
 import com.github.razorplay01.sway.ModTemplate;
 import com.github.razorplay01.sway.api.SwayAPI;
+import com.github.razorplay01.sway.api.behavior.BehaviorKey;
 import com.github.razorplay01.sway.client.behavior.BuiltinBehaviors;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
@@ -18,9 +19,9 @@ public class SwayRegistry {
 
 	public static void initialize() {
 		registerSugarCane();
-		//reg(Blocks.VINE, Blocks.WEEPING_VINES, Blocks.WEEPING_VINES_PLANT, Blocks.TWISTING_VINES, Blocks.TWISTING_VINES_PLANT);
+		registerVines();
 		reg(Blocks.TALL_GRASS, Blocks.FERN, Blocks.LARGE_FERN);
-		reg(Blocks.DEAD_BUSH, Blocks.SWEET_BERRY_BUSH, Blocks.CAVE_VINES, Blocks.CAVE_VINES_PLANT, Blocks.SMALL_DRIPLEAF, Blocks.BIG_DRIPLEAF, Blocks.BIG_DRIPLEAF_STEM, Blocks.GLOW_LICHEN, Blocks.MOSS_CARPET, Blocks.PITCHER_PLANT, Blocks.PITCHER_CROP, Blocks.TORCHFLOWER, Blocks.TORCHFLOWER_CROP, Blocks.BAMBOO_SAPLING);
+		reg(Blocks.DEAD_BUSH, Blocks.SWEET_BERRY_BUSH, Blocks.SMALL_DRIPLEAF, Blocks.BIG_DRIPLEAF, Blocks.BIG_DRIPLEAF_STEM, Blocks.GLOW_LICHEN, Blocks.MOSS_CARPET, Blocks.PITCHER_PLANT, Blocks.PITCHER_CROP, Blocks.TORCHFLOWER, Blocks.TORCHFLOWER_CROP, Blocks.BAMBOO_SAPLING);
 		reg(Blocks.DANDELION, Blocks.POPPY, Blocks.BLUE_ORCHID, Blocks.ALLIUM, Blocks.AZURE_BLUET, Blocks.RED_TULIP, Blocks.ORANGE_TULIP, Blocks.WHITE_TULIP, Blocks.PINK_TULIP, Blocks.OXEYE_DAISY, Blocks.CORNFLOWER, Blocks.LILY_OF_THE_VALLEY, Blocks.WITHER_ROSE, Blocks.SPORE_BLOSSOM);
 		reg(Blocks.SUNFLOWER, Blocks.LILAC, Blocks.ROSE_BUSH, Blocks.PEONY);
 		reg(Blocks.BROWN_MUSHROOM, Blocks.RED_MUSHROOM, Blocks.CRIMSON_FUNGUS, Blocks.WARPED_FUNGUS, Blocks.CRIMSON_ROOTS, Blocks.WARPED_ROOTS, Blocks.NETHER_SPROUTS);
@@ -52,6 +53,25 @@ public class SwayRegistry {
 				BuiltinBehaviors.SUGAR_CANE_DEFORMATION_KEY,
 				BuiltinBehaviors.multiplierKey(1.0F)
 		));
+	}
+
+	private static void registerVines() {
+		BuiltinBehaviors.ensureRegistered();
+		List<BehaviorKey> vinePipeline = List.of(
+				BuiltinBehaviors.ENTITY_COLLISION_KEY,
+				BuiltinBehaviors.PROXIMITY_FORCE_KEY,
+				BuiltinBehaviors.VINE_MULTIBLOCK_KEY,
+				BuiltinBehaviors.VINE_DEFORMATION_KEY,
+				BuiltinBehaviors.VINE_CLIMB_TENSION_KEY,
+				BuiltinBehaviors.multiplierKey(1.0F)
+		);
+		SwayAPI.setBlockPipeline(Blocks.VINE, vinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.WEEPING_VINES, vinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.WEEPING_VINES_PLANT, vinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.TWISTING_VINES, vinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.TWISTING_VINES_PLANT, vinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.CAVE_VINES, vinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.CAVE_VINES_PLANT, vinePipeline);
 	}
 
 	private static void reg(Block... blocks) {

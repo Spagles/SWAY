@@ -402,6 +402,11 @@ import com.github.razorplay01.sway.client.behavior.BuiltinBehaviors;
 | `PROXIMITY_FORCE_KEY` | `sway:proximity_force` | Force | Calcula la fuerza basada en la proximidad de la entidad al bloque. |
 | `DOUBLE_PLANT_MULTIBLOCK_KEY` | `sway:double_plant_multiblock` | MultiBlock | Gestiona plantas de dos bloques (mitad superior/inferior). |
 | `STANDARD_DEFORMATION_KEY` | `sway:standard_quadratic_deformation` | Deformation | Deformación cuadrática estándar con soporte para plantas dobles. |
+| `SUGAR_CANE_MULTIBLOCK_KEY` | `sway:sugar_cane_multiblock` | MultiBlock | Gestiona tallos de caña de azúcar de altura variable (2+ bloques). |
+| `SUGAR_CANE_DEFORMATION_KEY` | `sway:sugar_cane_deformation` | Deformation | Deformación cuadrática continua a lo largo de todo el tallo de caña. |
+| `VINE_MULTIBLOCK_KEY` | `sway:vine_multiblock` | MultiBlock | Gestiona enredaderas colgantes (VINE, WEEPING_VINES, TWISTING_VINES). |
+| `VINE_DEFORMATION_KEY` | `sway:vine_deformation` | Deformation | Deformación tipo cuerda: anclada al techo, oscila libremente en la punta. |
+| `VINE_CLIMB_TENSION_KEY` | `sway:vine_climb_tension` | Force | Tensa la parte superior de la vid cuando el jugador la trepa. |
 | `multiplierKey(float)` | `sway:multiplier_X_X` | Force | Multiplica la intensidad de la fuerza por un factor. |
 
 ### Uso de Comportamientos Integrados
