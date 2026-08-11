@@ -1,6 +1,15 @@
-package com.github.razorplay01.sway.client;
+package com.github.razorplay01.sway.platform.fabric.util;
 //? fabric {
 
+import com.github.razorplay01.sway.api.SwayAPI;
+import com.github.razorplay01.sway.api.behavior.BehaviorPipeline;
+import com.github.razorplay01.sway.client.SwayData;
+import com.github.razorplay01.sway.client.SwayEngine;
+import com.github.razorplay01.sway.client.behavior.multiblock.VineMultiblockBehavior;
+import com.github.razorplay01.sway.client.render.SwayBehaviorDeformer;
+import com.github.razorplay01.sway.platform.fabric.render.FabricVertexMutator;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
@@ -31,8 +40,8 @@ import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.client.resources.model.sprite.Material;
 //?}
 
-import java.util.function.Predicate;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*/ /*BakedModel *//*?} */ {
@@ -40,13 +49,6 @@ public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*
 
 	public SwayModel(/*? >= 1.21.2 {*/ BlockStateModel /*?} else {*/ /*BakedModel *//*?} */ parent) {
 		this.parent = parent;
-	}
-
-	private float getWeight(float y, BlockState state) {
-		boolean isDouble = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF);
-		boolean isUpper = isDouble && state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER;
-		float progress = isDouble ? (isUpper ? (y + 1.0F) / 2.0F : y / 2.0F) : y;
-		return progress > 0.05F ? progress * progress : 0.0F;
 	}
 
 	//? <= 1.21.1 {
@@ -69,14 +71,7 @@ public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*
 			return;
 		}
 
-		BlockPos swayPos = pos;
-		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
-			DoubleBlockHalf half = state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF);
-			if (half == DoubleBlockHalf.UPPER) {
-				swayPos = pos.below();
-			}
-		}
-
+		BlockPos swayPos = resolveSwayPos(pos, state);
 		SwayData data = SwayEngine.get(swayPos);
 		if (data == null || data.intensity < 0.01F) {
 			if (parent instanceof net.fabricmc.fabric.api.renderer.v1.model.FabricBakedModel) {
@@ -86,18 +81,11 @@ public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*
 		}
 
 		SwayData interpolated = data.getInterpolated(SwayEngine.getSmoothness());
-
-		final float dx = interpolated.nx * interpolated.intensity * 0.45F;
-		final float dz = interpolated.nz * interpolated.intensity * 0.45F;
+		BehaviorPipeline pipeline = SwayAPI.getBehaviorPipeline(state.getBlock());
 
 		context.pushTransform(quad -> {
-			for (int i = 0; i < 4; i++) {
-				float y = quad.y(i);
-				float weight = getWeight(y, state);
-				if (weight > 0) {
-					quad.pos(i, quad.x(i) + dx * weight, y, quad.z(i) + dz * weight);
-				}
-			}
+			FabricVertexMutator mutator = new FabricVertexMutator(quad);
+			SwayBehaviorDeformer.deform(mutator, interpolated, state, pos, pipeline);
 			return true;
 		});
 
@@ -159,25 +147,21 @@ public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*
 			return;
 		}
 
-		SwayData data = SwayEngine.get(pos);
+		// For vines, use the SwayData from the anchor block so all segments
+		// of the same vine deform together as one cohesive unit.
+		BlockPos swayPos = resolveSwayPos(pos, state);
+		SwayData data = SwayEngine.get(swayPos);
 		if (data == null || data.intensity < 0.01F) {
 			this.parent.emitQuads(emitter, view, pos, state, random, cull);
 			return;
 		}
 
 		SwayData interpolated = data.getInterpolated(SwayEngine.getSmoothness());
-
-		final float dx = interpolated.nx * interpolated.intensity * 0.45F;
-		final float dz = interpolated.nz * interpolated.intensity * 0.45F;
+		BehaviorPipeline pipeline = SwayAPI.getBehaviorPipeline(state.getBlock());
 
 		emitter.pushTransform(quad -> {
-			for (int i = 0; i < 4; i++) {
-				float y = quad.y(i);
-				float weight = getWeight(y, state);
-				if (weight > 0) {
-					quad.pos(i, quad.x(i) + dx * weight, y, quad.z(i) + dz * weight);
-				}
-			}
+			FabricVertexMutator mutator = new FabricVertexMutator(quad);
+			SwayBehaviorDeformer.deform(mutator, interpolated, state, pos, pipeline);
 			return true;
 		});
 
@@ -185,6 +169,35 @@ public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*
 		emitter.popTransform();
 	}
 	//?}
+
+	private static BlockPos resolveSwayPos(BlockPos pos, BlockState state) {
+		// For double plants, use the lower block's data
+		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
+				state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
+			return pos.below();
+		}
+
+		// For vines, use the anchor block's data so all segments deform together
+		if (VineMultiblockBehavior.isVine(state)) {
+			ClientLevel level = Minecraft.getInstance().level;
+			if (level != null) {
+				boolean hanging = VineMultiblockBehavior.isHangingVine(state);
+				BlockPos anchor = pos;
+				if (hanging) {
+					while (VineMultiblockBehavior.isVine(level.getBlockState(anchor.above()))) {
+						anchor = anchor.above();
+					}
+				} else {
+					while (VineMultiblockBehavior.isVine(level.getBlockState(anchor.below()))) {
+						anchor = anchor.below();
+					}
+				}
+				return anchor;
+			}
+		}
+
+		return pos;
+	}
 
 	//? >=1.21.2 && <26 {
 	/*@Override
@@ -199,8 +212,8 @@ public class SwayModel implements /*? >= 1.21.2 {*/ BlockStateModel /*?} else {*
 	*///?}
 	//? >=26 {
 	@Override
-	public void collectParts(RandomSource random, List<BlockStateModelPart> output) {
-		this.parent.collectParts(random, output);
+	public void collectParts(RandomSource randomSource, List<BlockStateModelPart> output) {
+		this.parent.collectParts(randomSource, output);
 	}
 
 	@Override

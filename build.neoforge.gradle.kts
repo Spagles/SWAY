@@ -17,7 +17,7 @@ platform {
 		required("neoforge") {
 			forgeLikeVersionRange.set("[1,)")
 		}
-		required("mc2_interactivefoliage") {
+		optional("mc2_interactivefoliage") {
 			forgeLikeVersionRange.set("[1,)")
 		}
 	}

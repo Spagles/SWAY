@@ -15,6 +15,9 @@ public class LevelRendererMixin implements SwayLevelRendererExtension {
 	private void sway$render(
 			com.mojang.blaze3d.resource.GraphicsResourceAllocator resourceAllocator, net.minecraft.client.DeltaTracker deltaTracker, boolean renderOutline, net.minecraft.client.renderer.state.level.CameraRenderState cameraState, org.joml.Matrix4fc modelViewMatrix, com.mojang.blaze3d.buffers.GpuBufferSlice terrainFog, org.joml.Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci
 	) {
+		sway$markedSections.clear();
+		sway$regionCache = new net.minecraft.client.renderer.chunk.RenderRegionCache();
+
 		SwayEngine.update();
 	}
 	//?}
@@ -30,7 +33,11 @@ public class LevelRendererMixin implements SwayLevelRendererExtension {
 	private net.minecraft.client.renderer.state.level.LevelRenderState levelRenderState;
 
 	@org.spongepowered.asm.mixin.Unique
-	private final net.minecraft.client.renderer.chunk.RenderRegionCache sway$regionCache = new net.minecraft.client.renderer.chunk.RenderRegionCache();
+	private static net.minecraft.client.renderer.chunk.RenderRegionCache sway$regionCache = new net.minecraft.client.renderer.chunk.RenderRegionCache();
+
+	@org.spongepowered.asm.mixin.Unique
+	private static final java.util.Set<Long> sway$markedSections = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
 	//?}
 
 	@Override
@@ -41,22 +48,14 @@ public class LevelRendererMixin implements SwayLevelRendererExtension {
 		int sx = net.minecraft.core.SectionPos.blockToSectionCoord(pos.getX());
 		int sy = net.minecraft.core.SectionPos.blockToSectionCoord(pos.getY());
 		int sz = net.minecraft.core.SectionPos.blockToSectionCoord(pos.getZ());
+		long sectionNode = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
 
-		// Marcar el bloque y sus vecinos (igual que el antiguo setBlockDirty)
-		for (int dx = -1; dx <= 1; dx++) {
-			for (int dy = -1; dy <= 1; dy++) {
-				for (int dz = -1; dz <= 1; dz++) {
-					int cx = sx + dx;
-					int cy = sy + dy;
-					int cz = sz + dz;
-					long sectionNode = net.minecraft.core.SectionPos.asLong(cx, cy, cz);
-					net.minecraft.client.renderer.chunk.RenderSectionRegion region = sway$regionCache.createRegion(level, sectionNode);
-					this.levelRenderState.sectionUpdateRenderStates.add(
-							new net.minecraft.client.renderer.state.level.SectionUpdateRenderState(sectionNode, false, region)
-					);
-				}
-			}
-		}
+		if (!sway$markedSections.add(sectionNode)) return;
+
+		net.minecraft.client.renderer.chunk.RenderSectionRegion region = sway$regionCache.createRegion(level, sectionNode);
+		this.levelRenderState.sectionUpdateRenderStates.add(
+				new net.minecraft.client.renderer.state.level.SectionUpdateRenderState(sectionNode, false, region)
+		);
 		//?}
 	}
 }
