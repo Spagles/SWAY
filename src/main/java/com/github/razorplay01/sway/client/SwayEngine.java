@@ -33,6 +33,8 @@ public class SwayEngine {
 
 	private static final ThreadLocal<ForceAccumulator> ACCUMULATOR = ThreadLocal.withInitial(ForceAccumulator::new);
 
+	private static long lastUpdateLog = 0L;
+
 	public static void update() {
 		Minecraft mc = Minecraft.getInstance();
 		ClientLevel level = mc.level;
@@ -103,6 +105,14 @@ public class SwayEngine {
 		CURRENT.clear();
 		CURRENT.putAll(next);
 		CURRENT.putAll(DECAYING);
+
+		long now = System.currentTimeMillis();
+		if (now - lastUpdateLog > 2000L) {
+			lastUpdateLog = now;
+			com.github.razorplay01.sway.ModTemplate.LOGGER.info(
+				"[SWAY-DIAG] SwayEngine.update level={} player={} activeBlocks={} next={} decaying={}",
+				level != null, mc.player != null, CURRENT.size(), next.size(), DECAYING.size());
+		}
 	}
 
 	private static void processBlock(BlockPos.MutableBlockPos mpos, ClientLevel level, Entity entity,

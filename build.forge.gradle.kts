@@ -17,6 +17,17 @@ platform {
 		required("forge") {
 			forgeLikeVersionRange.set("[1,)")
 		}
+		optional("mc2_interactivefoliage") {
+			forgeLikeVersionRange.set("[1,)")
+		}
+	}
+}
+mixins {
+	client {
+		always(
+			"LevelRendererMixin",
+			"ModelBlockRendererMixin"
+		)
 	}
 }
 

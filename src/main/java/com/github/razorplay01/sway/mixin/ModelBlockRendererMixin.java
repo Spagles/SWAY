@@ -1,5 +1,5 @@
 package com.github.razorplay01.sway.mixin;
-//? neoforge{
+//? neoforge || forge {
 /*import com.github.razorplay01.sway.SwayRenderContext;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -21,10 +21,15 @@ import java.util.function.Function;
 //? <=1.21.1{
 /^import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.resources.model.BakedModel;
-import net.neoforged.neoforge.client.model.data.ModelData;
+^///?}
+//? neoforge && <=1.21.1{
+/^import net.neoforged.neoforge.client.model.data.ModelData;
+^///?}
+//? forge && <=1.21.1 {
+/^import net.minecraftforge.client.model.data.ModelData;
 ^///?}
 
-@Mixin(ModelBlockRenderer.class)
+@Mixin(value = ModelBlockRenderer.class/^? forge { ^//^,remap = false^//^?} ^/)
 public class ModelBlockRendererMixin {
 	//? >1.21.11{
 	@Inject(
@@ -44,7 +49,14 @@ public class ModelBlockRendererMixin {
 	//?}
 	//? <=1.21.11{
 
-	/^//? <=1.21.1{
+	/^//? forge && <=1.21.1{
+	/^¹@Inject(
+			method = "tesselateBlock(Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/client/resources/model/BakedModel;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;ZLnet/minecraft/util/RandomSource;JILnet/minecraftforge/client/model/data/ModelData;Lnet/minecraft/client/renderer/RenderType;)V",
+			at = @At("HEAD")
+	)
+	private void captureBlockPos(BlockAndTintGetter p_234380_, BakedModel p_234381_, BlockState p_234382_, BlockPos p_234383_, PoseStack p_234384_, VertexConsumer p_234385_, boolean p_234386_, RandomSource p_234387_, long p_234388_, int p_234389_, ModelData modelData, RenderType renderType, CallbackInfo ci) {
+	¹^///?}
+	//? neoforge && <=1.21.1{
 	/^¹@Inject(
 			method = "tesselateBlock(Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/client/resources/model/BakedModel;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;ZLnet/minecraft/util/RandomSource;JILnet/neoforged/neoforge/client/model/data/ModelData;Lnet/minecraft/client/renderer/RenderType;)V",
 			at = @At("HEAD")
@@ -61,12 +73,20 @@ public class ModelBlockRendererMixin {
 		SwayRenderContext.setCurrentBlockPos(p_234383_);
 	}
 
-	//? <=1.21.1{
+	//? forge && <=1.21.1{
+	/^¹@Inject(
+			method = "tesselateBlock(Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/client/resources/model/BakedModel;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;ZLnet/minecraft/util/RandomSource;JILnet/minecraftforge/client/model/data/ModelData;Lnet/minecraft/client/renderer/RenderType;)V",
+			at = @At("RETURN")
+	)
+	private void clearBlockPos(BlockAndTintGetter p_234380_, BakedModel p_234381_, BlockState p_234382_, BlockPos p_234383_, PoseStack p_234384_, VertexConsumer p_234385_, boolean p_234386_, RandomSource p_234387_, long p_234388_, int p_234389_, ModelData modelData, RenderType renderType, CallbackInfo ci) {
+	¹^///?}
+	//? neoforge && <=1.21.1{
 	/^¹@Inject(
 			method = "tesselateBlock(Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/client/resources/model/BakedModel;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;ZLnet/minecraft/util/RandomSource;JILnet/neoforged/neoforge/client/model/data/ModelData;Lnet/minecraft/client/renderer/RenderType;)V",
 			at = @At("RETURN")
 	)
 	private void clearBlockPos(BlockAndTintGetter p_234380_, BakedModel p_234381_, BlockState p_234382_, BlockPos p_234383_, PoseStack p_234384_, VertexConsumer p_234385_, boolean p_234386_, RandomSource p_234387_, long p_234388_, int p_234389_, ModelData modelData, RenderType renderType, CallbackInfo ci) {
+
 	¹^///?}
 	//? >1.21.1 && <=1.21.11{
 	/^¹@Inject(

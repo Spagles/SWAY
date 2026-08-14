@@ -1,8 +1,11 @@
 package com.github.razorplay01.sway.platform.forge;
 
 //? forge {
+
 /*import com.github.razorplay01.sway.ModTemplate;
-import com.github.razorplay01.sway.client.SwayModel;
+import com.github.razorplay01.sway.api.SwayAPI;
+import com.github.razorplay01.sway.platform.forge.util.SwayModel;
+import net.minecraft.world.level.block.Block;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -15,18 +18,23 @@ import java.util.Map;
 
 @Mod.EventBusSubscriber(modid = ModTemplate.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class ForgeClientEventSubscriber {
-    @SubscribeEvent
-    public static void onClientSetup(final FMLClientSetupEvent event) {
-        ModTemplate.onInitializeClient();
-    }
+	@SubscribeEvent
+	public static void onClientSetup(final FMLClientSetupEvent event) {
+		ModTemplate.onInitializeClient();
+	}
 
-    @SubscribeEvent
-    public static void onModifyBakingResult(ModelEvent.ModifyBakingResult event) {
-        for (Map.Entry<ResourceLocation, BakedModel> entry : event.getModels().entrySet()) {
-            // Forge/NeoForge logic for model transformation
-        }
-    }
+	@SubscribeEvent
+	public static void onModifyBakingResult(ModelEvent.ModifyBakingResult event) {
+		int wrapped = 0;
+		for (Map.Entry<ResourceLocation, BakedModel> entry : event.getModels().entrySet()) {
+			ResourceLocation location = entry.getKey();
+			Block block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(location);
+			if (block != null && SwayAPI.isInteractive(block.defaultBlockState().getBlock())) {
+				event.getModels().put(location, new SwayModel(entry.getValue()));
+				wrapped++;
+			}
+		}
+		ModTemplate.LOGGER.info("[SWAY-DIAG] Forge onModifyBakingResult: totalModels={} wrapped={}", event.getModels().size(), wrapped);
+	}
 }
-
- */
-//?}
+*///?}

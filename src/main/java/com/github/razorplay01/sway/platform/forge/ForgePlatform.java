@@ -5,6 +5,9 @@ package com.github.razorplay01.sway.platform.forge;
 /*import com.github.razorplay01.sway.platform.Platform;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.loading.FMLLoader;
+import net.minecraftforge.fml.loading.FMLPaths;
+
+import java.nio.file.Path;
 
 public class ForgePlatform implements Platform {
 
@@ -26,6 +29,11 @@ public class ForgePlatform implements Platform {
 	@Override
 	public boolean isDevelopmentEnvironment() {
 		return !FMLLoader.isProduction();
+	}
+
+	@Override
+	public Path getConfigDir() {
+		return FMLPaths.CONFIGDIR.get();
 	}
 }
 *///?}
