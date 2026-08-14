@@ -16,9 +16,4 @@ public class StandardQuadraticDeformation implements DeformationContributor {
 		float progress = isDouble ? (isUpper ? (vertexY + 1.0F) / 2.0F : vertexY / 2.0F) : vertexY;
 		return progress > 0.05F ? progress * progress : 0.0F;
 	}
-
-	@Override
-	public float getDeformationScale(BlockState state, BlockPos pos) {
-		return 0.45F;
-	}
 }

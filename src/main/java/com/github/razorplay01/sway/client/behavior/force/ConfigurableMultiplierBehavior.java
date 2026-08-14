@@ -7,20 +7,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
 
-public final class ConfigurableMultiplierBehavior implements ForceContributor {
-	private final float multiplier;
-
-	public ConfigurableMultiplierBehavior(float multiplier) {
-		this.multiplier = multiplier;
-	}
-
-	public float getMultiplier() {
-		return multiplier;
-	}
-
+public record ConfigurableMultiplierBehavior(float multiplier) implements ForceContributor {
 	@Override
 	public void contributeForce(BlockPos pos, BlockState state, Entity entity,
-	                             SwayBehaviorContext ctx, ForceAccumulator accumulator) {
+	                            SwayBehaviorContext ctx, ForceAccumulator accumulator) {
 		accumulator.multiplyScale(multiplier);
 	}
 }

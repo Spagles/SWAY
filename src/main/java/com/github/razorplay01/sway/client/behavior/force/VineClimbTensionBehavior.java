@@ -3,7 +3,8 @@ package com.github.razorplay01.sway.client.behavior.force;
 import com.github.razorplay01.sway.api.behavior.contributors.ForceContributor;
 import com.github.razorplay01.sway.api.behavior.context.ForceAccumulator;
 import com.github.razorplay01.sway.api.behavior.context.SwayBehaviorContext;
-import com.github.razorplay01.sway.client.behavior.multiblock.VineMultiblockBehavior;
+import com.github.razorplay01.sway.client.behavior.multiblock.GrowingVineMultiblockBehavior;
+import com.github.razorplay01.sway.client.behavior.multiblock.HangingVineMultiblockBehavior;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -16,13 +17,14 @@ public class VineClimbTensionBehavior implements ForceContributor {
 
 	@Override
 	public boolean appliesTo(BlockState state) {
-		return VineMultiblockBehavior.isVine(state);
+		return HangingVineMultiblockBehavior.isHangingVine(state)
+				|| GrowingVineMultiblockBehavior.isGrowingVine(state);
 	}
 
 	@Override
 	public void contributeForce(BlockPos pos, BlockState state, Entity entity,
 	                             SwayBehaviorContext ctx, ForceAccumulator accumulator) {
-		if (!VineMultiblockBehavior.isVine(state)) return;
+		if (!appliesTo(state)) return;
 		if (!(entity instanceof Player player)) return;
 
 		// Only apply tension when the player is actually climbing the vine
@@ -32,16 +34,16 @@ public class VineClimbTensionBehavior implements ForceContributor {
 		ClientLevel level = Minecraft.getInstance().level;
 		if (level == null) return;
 
-		boolean hanging = VineMultiblockBehavior.isHangingVine(state);
+		boolean hanging = HangingVineMultiblockBehavior.isHangingVine(state);
 
 		// Find the anchor: top for hanging vines, bottom for growing vines
 		BlockPos anchor = pos;
 		if (hanging) {
-			while (VineMultiblockBehavior.isVine(level.getBlockState(anchor.above()))) {
+			while (HangingVineMultiblockBehavior.isHangingVine(level.getBlockState(anchor.above()))) {
 				anchor = anchor.above();
 			}
 		} else {
-			while (VineMultiblockBehavior.isVine(level.getBlockState(anchor.below()))) {
+			while (GrowingVineMultiblockBehavior.isGrowingVine(level.getBlockState(anchor.below()))) {
 				anchor = anchor.below();
 			}
 		}
@@ -50,12 +52,12 @@ public class VineClimbTensionBehavior implements ForceContributor {
 		int totalLength = 0;
 		BlockPos current = anchor;
 		if (hanging) {
-			while (VineMultiblockBehavior.isVine(level.getBlockState(current))) {
+			while (HangingVineMultiblockBehavior.isHangingVine(level.getBlockState(current))) {
 				totalLength++;
 				current = current.below();
 			}
 		} else {
-			while (VineMultiblockBehavior.isVine(level.getBlockState(current))) {
+			while (GrowingVineMultiblockBehavior.isGrowingVine(level.getBlockState(current))) {
 				totalLength++;
 				current = current.above();
 			}

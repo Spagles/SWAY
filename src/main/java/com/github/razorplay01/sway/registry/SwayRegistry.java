@@ -57,21 +57,29 @@ public class SwayRegistry {
 
 	private static void registerVines() {
 		BuiltinBehaviors.ensureRegistered();
-		List<BehaviorKey> vinePipeline = List.of(
+		List<BehaviorKey> hangingVinePipeline = List.of(
 				BuiltinBehaviors.ENTITY_COLLISION_KEY,
 				BuiltinBehaviors.PROXIMITY_FORCE_KEY,
-				BuiltinBehaviors.VINE_MULTIBLOCK_KEY,
-				BuiltinBehaviors.VINE_DEFORMATION_KEY,
+				BuiltinBehaviors.HANGING_VINE_MULTIBLOCK_KEY,
+				BuiltinBehaviors.HANGING_VINE_DEFORMATION_KEY,
 				BuiltinBehaviors.VINE_CLIMB_TENSION_KEY,
 				BuiltinBehaviors.multiplierKey(1.0F)
 		);
-		SwayAPI.setBlockPipeline(Blocks.VINE, vinePipeline);
-		SwayAPI.setBlockPipeline(Blocks.WEEPING_VINES, vinePipeline);
-		SwayAPI.setBlockPipeline(Blocks.WEEPING_VINES_PLANT, vinePipeline);
-		SwayAPI.setBlockPipeline(Blocks.TWISTING_VINES, vinePipeline);
-		SwayAPI.setBlockPipeline(Blocks.TWISTING_VINES_PLANT, vinePipeline);
-		SwayAPI.setBlockPipeline(Blocks.CAVE_VINES, vinePipeline);
-		SwayAPI.setBlockPipeline(Blocks.CAVE_VINES_PLANT, vinePipeline);
+		List<BehaviorKey> growingVinePipeline = List.of(
+				BuiltinBehaviors.ENTITY_COLLISION_KEY,
+				BuiltinBehaviors.PROXIMITY_FORCE_KEY,
+				BuiltinBehaviors.GROWING_VINE_MULTIBLOCK_KEY,
+				BuiltinBehaviors.GROWING_VINE_DEFORMATION_KEY,
+				BuiltinBehaviors.VINE_CLIMB_TENSION_KEY,
+				BuiltinBehaviors.multiplierKey(1.0F)
+		);
+		SwayAPI.setBlockPipeline(Blocks.VINE, hangingVinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.WEEPING_VINES, hangingVinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.WEEPING_VINES_PLANT, hangingVinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.CAVE_VINES, hangingVinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.CAVE_VINES_PLANT, hangingVinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.TWISTING_VINES, growingVinePipeline);
+		SwayAPI.setBlockPipeline(Blocks.TWISTING_VINES_PLANT, growingVinePipeline);
 	}
 
 	private static void reg(Block... blocks) {

@@ -29,7 +29,7 @@ public class ModTemplate {
 		LOGGER.info("Initializing {} on {}", MOD_ID, ModTemplate.xplat().loader());
 		LOGGER.debug("{}: { version: {}; friendly_name: {} }", MOD_ID, MOD_VERSION, MOD_FRIENDLY_NAME);
 		SwayConfig.load();
-		//SwayRegistry.initialize();
+		SwayRegistry.initialize();
 	}
 
 	public static void onInitializeClient() {
